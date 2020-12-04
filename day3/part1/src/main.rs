@@ -14,9 +14,7 @@ fn main() {
             // ..#..#...
             let mut chars = x.chars().cycle();
             pos += 3;
-            let result = chars.nth(pos) == Some('#');
-            println!("for line: {}, {}", x, if result { "X" } else { "O" });
-            result
+            chars.nth(pos) == Some('#')
         })
         .count();
     println!("Number of trees encountered: {}", count);
