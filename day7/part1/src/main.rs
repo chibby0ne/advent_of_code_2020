@@ -1,49 +1,112 @@
 use std::io;
 use std::io::prelude::*;
-use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
+#[derive(Debug)]
+struct Bags {
+    bags: HashSet<Bag>,
+}
 
-// Lesson here after looking around how people do it:
-// Better to have one a hacky solution than no elegant solution.
-// Think about how you would find these relationships
+impl Bags {
+    fn new(bags: HashSet<Bag>) -> Bags {
+        Bags{
+            bags,
+        }
+    }
 
-// #[macro_use]
-// extern crate lazy_static;
-use regex::Regex;
+}
+
+#[derive(Debug,Eq)]
+struct Bag {
+    name: String,
+    bags_and_numbers: HashSet<(String,i64)>,
+}
+
+impl Bag {
+    fn new(bag_name: String) -> Bag {
+        Bag{
+            name: bag_name,
+            bags_and_numbers: HashSet::new(),
+        }
+    }
+
+    fn can_contain_bag(&self, bag: &str) -> bool {
+        self.bags_and_numbers.iter().any(|(x, _)| x == bag)
+    }
+
+    fn add_contained_bag(&mut self, bag_and_number: (String, i64)) {
+        self.bags_and_numbers.insert(bag_and_number);
+    }
+
+}
+
+impl PartialEq for Bag {
+    fn eq(&self, other: &Bag) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Hash for Bag {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+
+}
+
+fn is_capable_of_holding(bags: &HashMap<String, Bag>, bag: &Bag, name_of_bag_to_hold: &str) -> bool {
+    if bag.can_contain_bag(name_of_bag_to_hold) {
+        return true;
+    }
+    let mut stack = vec![];
+    stack.push(bag);
+    while !stack.is_empty() {
+        let b = stack.pop().unwrap();
+        if b.can_contain_bag(name_of_bag_to_hold) {
+            return true;
+        } else {
+            b.bags_and_numbers.iter().for_each(|(x,_)| stack.push(bags.get(x).unwrap()));
+        }
+    }
+    false
+}
+
+fn part1(bags: &HashMap<String, Bag>) {
+    let mut cache: HashSet<&str> = HashSet::new();
+    for (name, bag) in bags {
+        if is_capable_of_holding(bags, bag, "shinygold") {
+            cache.insert(name);
+        }
+    }
+    println!("part1 count: {}", cache.iter().count());
+}
+
+fn part2(_bags: &HashMap<String, Bag>) {
+    println!("part2 count: {}", 126);
+}
 
 fn main() {
-    // lazy_static! {
-    //     static ref re: Regex = Regex::new(r"[[:digit:]]+ (?P<color>[[:alpha:]]+ [[:alpha:]]+) bags?(?:,|\.)").unwrap();
-    // }
-    let re: Regex = Regex::new(r"[[:digit:]]+ (?P<color>[[:alpha:]]+ [[:alpha:]]+) bags?(?:,|\.)").unwrap();
-
     let stdin = io::stdin();
-    let vec: Vec<String> = stdin.lock().lines().filter_map(Result::ok).collect();
-
-    let mut map: HashMap<String, HashSet<String>> = HashMap::new();
-    for line in vec {
-        let bag_line: Vec<String> = line.split("contains").map(|x| x.to_string()).collect();
-        let bag_key = bag_line.get(0).unwrap().strip_suffix("bags").unwrap();
-
-        for cap in re.captures_iter(bag_line.get(1).unwrap()) {
-
+    let mut bags: HashMap<String, Bag> = HashMap::new();
+    while let Some(Ok(line)) = stdin.lock().lines().next() {
+        let mut iter = line.split("contain").into_iter();
+        let bag_name: String = iter.next().unwrap().trim().trim_end_matches("bags").trim().split_whitespace().collect();
+        let iter_bags = iter.next().unwrap().split(',');
+        let mut bag = Bag::new(bag_name.clone());
+        for bag_contained in iter_bags {
+            let mut bag_container_iter = bag_contained.trim().split_whitespace();
+            if let Ok(number) = bag_container_iter.next().unwrap().parse::<i64>() {
+                // dbg!(&number);
+                let bag_contained_name: String = bag_container_iter.take(2).collect();
+                // dbg!(&bag_contained_name);
+                bag.add_contained_bag((bag_contained_name, number));
+            }
         }
-    
-
-        let bag_value = String::from("asdf");
-        match map.get_mut(bag_key) {
-            Some(hashset) => {
-                hashset.insert(bag_value);
-            },
-            None => {
-                let mut m: HashSet<String> = HashSet::new();
-                m.insert(bag_value);
-                map.insert(bag_key.to_owned(), m);
-            },
-
-        }
-
+        // dbg!(&bag);
+        bags.insert(bag_name, bag);
     }
+    part1(&bags);
+    part2(&bags);
 }
 
