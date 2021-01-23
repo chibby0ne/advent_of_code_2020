@@ -1,4 +1,3 @@
-#![feature(iter_advance_by)]
 /*
  * --- Day 8: Handheld Halting ---
 
