@@ -49,7 +49,7 @@ use std::collections::HashSet;
 use std::io;
 use std::io::prelude::*;
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 enum InstructionType {
     Nop(i64),
     Acc(i64),
@@ -71,94 +71,27 @@ fn convert_to_instruction_type(line: &str) -> Option<InstructionType> {
     }
 }
 
-fn main() -> std::io::Result<()> {
-    let stdin = io::stdin();
-    let instructions: Vec<InstructionType>  = stdin.lock()
-        .lines()
-        .filter_map(|x| x.ok())
-        .filter_map(|x| convert_to_instruction_type(&x))
-        .collect();
-
-    let mut accumulator: i64 = 0;
-    let mut instructions_numbers_processed: HashSet<usize> = HashSet::new();
-    let mut instructions_numbers_processed_vec: Vec<usize> = Vec::new();
-    let mut instructions_processed: Vec<InstructionType> = Vec::new();
-    let mut instruction_number: usize = 0;
-
-    // Find program loop and break from it
+fn run_program_until_loop_or_end(
+    instructions: &[InstructionType],
+    instructions_numbers_processed: &mut HashSet<usize>,
+    mut instructions_numbers_processed_vec: Option<&mut Vec<usize>>,
+    mut instructions_processed: Option<&mut Vec<InstructionType>>,
+    initial_instruction_number: usize,
+    initial_accumulator: i64,
+) -> (bool, i64) {
+    let mut instruction_number = initial_instruction_number;
+    let mut new_accumulator = initial_accumulator;
     loop {
-        if let Some(_) = instructions_numbers_processed.get(&instruction_number) {
-            break;
+        if instructions_numbers_processed
+            .get(&instruction_number)
+            .is_some()
+        {
+            return (false, new_accumulator);
         }
         instructions_numbers_processed.insert(instruction_number);
-        instructions_numbers_processed_vec.push(instruction_number);
-        match instructions.get(instruction_number) {
-            Some(ins) => {
-                match ins {
-                    InstructionType::Nop(_) => {
-                        instruction_number += 1;
-                    }
-                    InstructionType::Acc(val) => {
-                        accumulator += val;
-                        instruction_number += 1;
-                    }
-                    InstructionType::Jmp(val) => {
-                        instruction_number = (instruction_number as i64 + *val) as usize;
-                    }
-                };
-                instructions_processed.push(*ins);
-            },
-            _ => panic!("No instructions found at instruction number: {}", instruction_number),
+        if let Some(ref mut vec) = instructions_numbers_processed_vec {
+            vec.push(instruction_number);
         }
-    }
-
-    // Revisit the instructions from the last one to the first one
-    // Evaluate if a nop can be replaced by a jmp or a jmp can be replaced by a nop in order to end
-    // the program
-    assert_eq!(instructions_numbers_processed_vec.len(), instructions_processed.len());
-    let mut new_accumulator = accumulator;
-    let mut changed_instr;
-    for (candidate_instr, candidate_instr_number) in  instructions_processed.iter().zip(instructions_numbers_processed_vec.iter()).rev() {
-        match candidate_instr {
-            InstructionType::Nop(val) => changed_instr = InstructionType::Jmp(*val),
-            InstructionType::Jmp(val) => changed_instr = InstructionType::Nop(*val),
-            InstructionType::Acc(val) => {
-                new_accumulator = accumulator - *val;
-                continue;
-            },
-        };
-        dbg!(candidate_instr_number);
-        dbg!(new_accumulator);
-
-        let (stop, final_acc) = run_modified_program(&instructions, *candidate_instr_number, &changed_instr, new_accumulator);
-        if stop {
-            accumulator = final_acc;
-            break;
-        }
-    }
-    println!("Accumulator is: {}", accumulator);
-    Ok(())
-}
-
-fn run_modified_program(instructions: &Vec<InstructionType>, start_instruction_num: usize, start_instruction: &InstructionType, accumulator: i64) -> (bool, i64) {
-    let mut instruction_number = match start_instruction {
-        InstructionType::Nop(_) => start_instruction_num + 1,
-        InstructionType::Jmp(val) => {
-            dbg!(start_instruction_num as i64 + val);
-            (start_instruction_num as i64 + val) as usize
-        },
-        _ => panic!("found an instruction that is not of type jmp or nop"),
-    };
-    let mut instructions_numbers_processed: HashSet<usize> = HashSet::new();
-    let mut instructions_numbers_processed_vec: Vec<usize> = Vec::new();
-    let mut new_accumulator = dbg!(accumulator);
-    loop {
-        if let Some(_) = instructions_numbers_processed.get(&instruction_number) {
-            dbg!("returning because of a found loop");
-            return (false, new_accumulator)
-        }
-        instructions_numbers_processed.insert(instruction_number);
-        instructions_numbers_processed_vec.push(instruction_number);
         match instructions.get(instruction_number) {
             Some(ins) => {
                 match ins {
@@ -173,12 +106,93 @@ fn run_modified_program(instructions: &Vec<InstructionType>, start_instruction_n
                         instruction_number = (instruction_number as i64 + *val) as usize;
                     }
                 };
-            },
+                if let Some(ref mut ins_proc) = instructions_processed {
+                    ins_proc.push(*ins);
+                }
+            }
             _ => {
-                dbg!("returning because of found a non loop");
-                dbg!(instructions_numbers_processed_vec);
-                return (true, new_accumulator)
+                return (true, new_accumulator);
             }
         }
     }
+}
+
+fn run_modified_program(
+    instructions: &[InstructionType],
+    start_instruction_num: usize,
+    start_instruction: &InstructionType,
+    accumulator: i64,
+) -> (bool, i64) {
+    let instruction_number = match start_instruction {
+        InstructionType::Nop(_) => start_instruction_num + 1,
+        InstructionType::Jmp(val) => (start_instruction_num as i64 + val) as usize,
+        _ => panic!("found an instruction that is not of type jmp or nop"),
+    };
+    let mut instructions_numbers_processed: HashSet<usize> = HashSet::new();
+    run_program_until_loop_or_end(
+        instructions,
+        &mut instructions_numbers_processed,
+        None,
+        None,
+        instruction_number,
+        accumulator,
+    )
+}
+
+fn main() {
+    let stdin = io::stdin();
+    let instructions: Vec<InstructionType> = stdin
+        .lock()
+        .lines()
+        .filter_map(|x| x.ok())
+        .filter_map(|x| convert_to_instruction_type(&x))
+        .collect();
+
+    let mut instructions_numbers_processed: HashSet<usize> = HashSet::new();
+    let mut instructions_numbers_processed_vec: Vec<usize> = Vec::new();
+    let mut instructions_processed: Vec<InstructionType> = Vec::new();
+
+    // Find program loop and break from it
+    let (program_ended, mut accumulator) = run_program_until_loop_or_end(
+        &instructions,
+        &mut instructions_numbers_processed,
+        Some(&mut instructions_numbers_processed_vec),
+        Some(&mut instructions_processed),
+        0,
+        0,
+    );
+    if program_ended {
+        panic!("Program was supposed to have an infinite loop");
+    }
+    // Revisit the instructions from the last one to the first one
+    // Evaluate if a nop can be replaced by a jmp or a jmp can be replaced by a nop in order to end
+    // the program
+    let mut changed_instr;
+    let instructions_processed_in_reverse = instructions_processed
+        .iter()
+        .zip(instructions_numbers_processed_vec.iter())
+        .rev();
+
+    for (candidate_instr, candidate_instr_number) in instructions_processed_in_reverse {
+        match candidate_instr {
+            InstructionType::Nop(val) => changed_instr = InstructionType::Jmp(*val),
+            InstructionType::Jmp(val) => changed_instr = InstructionType::Nop(*val),
+            InstructionType::Acc(val) => {
+                accumulator -= *val;
+                continue;
+            }
+        };
+
+        let (stop, final_acc) = run_modified_program(
+            &instructions,
+            *candidate_instr_number,
+            &changed_instr,
+            accumulator,
+        );
+        if stop {
+            accumulator = final_acc;
+            break;
+        }
+    }
+    println!("Accumulator is: {}", accumulator);
 }
