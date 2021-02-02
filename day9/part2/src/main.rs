@@ -95,7 +95,6 @@
 
 // What is the encryption weakness in your XMAS-encrypted list of numbers?
 
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::io;
 use std::io::prelude::*;
@@ -122,18 +121,18 @@ fn part1(input: &[i64], queue: &mut Vec<i64>, set: &mut HashSet<i64>) -> Option<
 }
 
 fn part2(input: &[i64], invalid_num: i64) -> Option<i64> {
-    let mut clone_input = input.to_owned();
-    let mut set: HashMap<i64, usize> = HashMap::new();
-    for (i, &v) in input.iter().enumerate() {
-        set.insert(v, i);
-    }
-    clone_input.sort();
-    let mut i = 0;
-    let mut j = clone_input.len() - 1;
-    while i < j {
-        if clone_input[i] + clone_input[j] == invalid_num {
-            let p = set[&clone_input[i]];
-            let q = set[&clone_input[j]];
+    for i in 0..input.len() {
+        for set_length in 2..input.len() - i {
+            let possible_val: i64 = input.iter().skip(i).take(set_length).sum();
+            match possible_val.cmp(&invalid_num) {
+                std::cmp::Ordering::Greater => break,
+                std::cmp::Ordering::Equal => {
+                    let mut v: Vec<i64> = input[i..i + set_length].iter().copied().collect();
+                    v.sort_unstable();
+                    return Some(v.get(0).unwrap() + v.iter().last().unwrap());
+                }
+                _ => continue,
+            }
         }
     }
     None
@@ -151,9 +150,9 @@ fn main() {
     let mut set: HashSet<i64> = input.iter().take(PREAMBLE).copied().collect();
 
     if let Some(ans) = part1(&input, &mut queue, &mut set) {
-        println!("{}", ans.1);
+        println!("answer part1: {}", ans.1);
         if let Some(ans2) = part2(&input[..ans.0], ans.1) {
-            println!("{}", ans2);
+            println!("answer part2: {}", ans2);
         }
     }
 }
