@@ -100,17 +100,7 @@
 // and your device. What is the number of 1-jolt differences multiplied by the number of 3-jolt
 // differences?
 
-use std::io;
-use std::io::BufRead;
-
-fn main() {
-    let stdin = io::stdin();
-    let mut input: Vec<i64> = stdin
-        .lock()
-        .lines()
-        .filter_map(|x| x.ok())
-        .filter_map(|x| x.parse::<i64>().ok())
-        .collect();
+fn part1(input: &mut Vec<i64>) -> i64 {
     input.sort_unstable();
     let mut diff_one = 0;
     let mut diff_three = 1; // always the built-in adapter difference
@@ -123,5 +113,24 @@ fn main() {
         }
         prev = v;
     }
-    println!("diff_one * diff_three = {}" , diff_one * diff_three);
+    diff_one * diff_three
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+    use std::io::BufRead;
+
+    #[test]
+    fn part1_test() {
+        let stdin = io::stdin();
+        let mut input: Vec<i64> = stdin
+            .lock()
+            .lines()
+            .filter_map(|x| x.ok())
+            .filter_map(|x| x.parse::<i64>().ok())
+            .collect();
+        assert_eq!(part1(&mut input), 1914);
+    }
+} /* tests */
