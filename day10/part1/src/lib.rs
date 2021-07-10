@@ -100,20 +100,22 @@
 // and your device. What is the number of 1-jolt differences multiplied by the number of 3-jolt
 // differences?
 
+use std::collections::HashMap;
+
 fn part1(input: &mut Vec<i64>) -> i64 {
+    input.push(0); // seat outlet jolt rating
+    input.push(input.iter().copied().max().unwrap() + 3); // always the built-in adapter is max rating of adapter + 3
     input.sort_unstable();
-    let mut diff_one = 0;
-    let mut diff_three = 1; // always the built-in adapter difference
-    let mut prev = 0; // seat outlet jolt rating
-    for &v in input.iter() {
-        match v - prev {
-            1 => diff_one += 1,
-            3 => diff_three += 1,
-            _ => (),
-        }
-        prev = v;
-    }
-    diff_one * diff_three
+    let iter = input.iter();
+    let hmap = iter
+        .zip(input.iter().skip(1))
+        .map(|(&x, &y)| (x - y).abs())
+        .fold(HashMap::<i64, i64>::new(), |mut acc, item| {
+            let counter = acc.entry(item).or_insert(0);
+            *counter += 1;
+            acc
+        });
+    hmap.get(&3).unwrap() * hmap.get(&1).unwrap()
 }
 
 #[cfg(test)]
