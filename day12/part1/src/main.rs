@@ -93,20 +93,20 @@ impl Position {
         Position { x, y }
     }
 
-    fn move_east(&mut self, y: i64) {
-        self.y += y
-    }
-
-    fn move_west(&mut self, y: i64) {
-        self.y -= y
-    }
-
-    fn move_north(&mut self, x: i64) {
+    fn move_east(&mut self, x: i64) {
         self.x += x
     }
 
-    fn move_south(&mut self, x: i64) {
+    fn move_west(&mut self, x: i64) {
         self.x -= x
+    }
+
+    fn move_north(&mut self, y: i64) {
+        self.y += y
+    }
+
+    fn move_south(&mut self, y: i64) {
+        self.y -= y
     }
 
     fn manhattan_distance(self) -> i64 {
