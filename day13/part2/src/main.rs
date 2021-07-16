@@ -82,6 +82,18 @@
 // (This left part of the equation can already be precomputed in the first step)
 // Once that condition is satisfied for all numbers, that T is the earliest timestamp
 //
+//
+// UPDATE: This is a brute force approach that simply takes too long to find for the real input.
+// After some search, we find that this number theory problem (number theory is the branch of
+// mathematics concerned with study of integers and integer valued functions), then this could be
+// described as a diophantine equation, which are polynomial equations usually involving 2 or more
+// variables such that the solutions of interest are integer ones, and deals with
+// coprime (a.k.a setwise coprime) and more specifically: pairwise coprime numbers, then the
+// Chinese Remainder Theorem can be used to solve it.
+//
+// Looking at the methods for solving the Chinese Remainder Theorem we can use the sieve approach.
+//
+
 
 use std::io;
 use std::io::BufRead;
