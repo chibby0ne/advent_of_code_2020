@@ -94,9 +94,8 @@
 // Looking at the methods for solving the Chinese Remainder Theorem we can use the sieve approach.
 //
 
-
-use std::io;
-use std::io::BufRead;
+use std::fs::File;
+use std::io::{self, *};
 
 fn is_earliest_timestamp(timestamp: i128, bus_ids_and_residues: &[(i128, i128)]) -> bool {
     for &(bus_id, residue) in bus_ids_and_residues {
@@ -107,31 +106,11 @@ fn is_earliest_timestamp(timestamp: i128, bus_ids_and_residues: &[(i128, i128)])
     true
 }
 
-fn find_earliest_timestamp(bus_ids_and_expected_residues: &[(i128, i128)]) -> i128 {
-    // let mut timestamp: i128 = (100000000000000 / bus_ids_and_expected_residues[0].0) * bus_ids_and_expected_residues[0].0;
-    let mut timestamp: i128 = 0;
-    let top: i128 = bus_ids_and_expected_residues.iter().fold(1, |mut acc, &(bus_id, _)| {
-        acc *= bus_id;
-        acc
-    });
-    println!("initial timestamp: {}, top: {}", timestamp, top);
-    // println!("bus_ids_and_expected_residues[0].0: {}", bus_ids_and_expected_residues[0].0);
-    // panic!("ho");
-    loop {
-        timestamp += bus_ids_and_expected_residues[0].0;
-        // dbg!(timestamp);
-        if is_earliest_timestamp(timestamp, &bus_ids_and_expected_residues[1..]) {
-            return timestamp;
-        }
-        if timestamp > top {
-            panic!("this didn't work")
-        }
-    }
-}
-
-fn main() {
-    let stdin = io::stdin();
-    let lines: Vec<String> = stdin.lock().lines().filter_map(|x| x.ok()).collect();
+fn find_earliest_timestamp(file: &File) -> io::Result<i128> {
+    let mut buf_reader = BufReader::new(file);
+    let mut contents = String::new();
+    buf_reader.read_to_string(&mut contents)?;
+    let lines: Vec<String> = contents.lines().map(|x| x.to_owned()).collect();
     let bus_ids_and_expected_residues: Vec<(i128, i128)> = lines[1]
         .split(',')
         .enumerate()
@@ -140,7 +119,59 @@ fn main() {
         .map(|(i, x)| (i, x.unwrap()))
         .map(|(i, x)| (x, (x - i as i128).abs()))
         .collect();
-    dbg!(&bus_ids_and_expected_residues);
-    let bus_wait_time = find_earliest_timestamp(&bus_ids_and_expected_residues);
-    println!("{}", bus_wait_time);
+    let mut timestamp: i128 = 0;
+    let top: i128 = bus_ids_and_expected_residues
+        .iter()
+        .fold(1, |mut acc, &(bus_id, _)| {
+            acc *= bus_id;
+            acc
+        });
+    println!("initial timestamp: {}, top: {}", timestamp, top);
+    loop {
+        timestamp += bus_ids_and_expected_residues[0].0;
+        if is_earliest_timestamp(timestamp, &bus_ids_and_expected_residues[1..]) {
+            return Ok(timestamp);
+        }
+        if timestamp > top {
+            panic!("this didn't work")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_example_input() -> std::io::Result<()> {
+        let path = env::current_dir()?;
+        let file = File::open(path.join("../example_input"))?;
+        assert_eq!(1068781, find_earliest_timestamp(&file)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_example_input2() -> std::io::Result<()> {
+        let path = env::current_dir()?;
+        let file = File::open(path.join("../example_input2"))?;
+        assert_eq!(3417, find_earliest_timestamp(&file)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_example_input3() -> std::io::Result<()> {
+        let path = env::current_dir()?;
+        let file = File::open(path.join("../example_input3"))?;
+        assert_eq!(754018, find_earliest_timestamp(&file)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_example_input4() -> std::io::Result<()> {
+        let path = env::current_dir()?;
+        let file = File::open(path.join("../example_input4"))?;
+        assert_eq!(779210, find_earliest_timestamp(&file)?);
+        Ok(())
+    }
 }
