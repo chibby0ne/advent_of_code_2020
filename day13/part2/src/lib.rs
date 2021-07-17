@@ -93,49 +93,101 @@
 //
 // Looking at the methods for solving the Chinese Remainder Theorem we can use the sieve approach.
 //
+// UPDATE2: The sieve approach is too slow still (O(2^N) exponential) :\ Better to use the
+// existence construction approach:
+// https://en.wikipedia.org/wiki/Chinese_remainder_theorem#Using_the_existence_construction (which
+// has a running of O(n^2))
 
+use std::error::Error;
 use std::fs::File;
-use std::io::{self, *};
+use std::io::BufReader;
+use std::io::Read;
+use std::cmp::Reverse;
 
-fn is_earliest_timestamp(timestamp: i128, bus_ids_and_residues: &[(i128, i128)]) -> bool {
-    for &(bus_id, residue) in bus_ids_and_residues {
-        if timestamp % bus_id != residue {
-            return false;
-        }
-    }
-    true
-}
+// fn is_earliest_timestamp(timestamp: i128, bus_ids_and_residues: &[(i128, i128)]) -> bool {
+//     for &(bus_id, residue) in bus_ids_and_residues {
+//         if timestamp % bus_id != residue {
+//             return false;
+//         }
+//     }
+//     true
+// }
 
-fn find_earliest_timestamp(file: &File) -> io::Result<i128> {
+fn find_earliest_timestamp(file: &File) -> Result<i128, Box<dyn Error>> {
     let mut buf_reader = BufReader::new(file);
     let mut contents = String::new();
     buf_reader.read_to_string(&mut contents)?;
     let lines: Vec<String> = contents.lines().map(|x| x.to_owned()).collect();
-    let bus_ids_and_expected_residues: Vec<(i128, i128)> = lines[1]
+    let mut bus_ids_and_expected_residues: Vec<(i128, i128)> = lines[1]
         .split(',')
         .enumerate()
         .map(|(i, x)| (i, x.parse::<i128>().ok()))
         .filter(|(_, x)| x.is_some())
         .map(|(i, x)| (i, x.unwrap()))
-        .map(|(i, x)| (x, (x - i as i128).abs()))
+        .map(|(i, x)| {
+            if i == 0 {
+                (x, 0)
+            } else {
+                (x, (x - i as i128).abs())
+            }
+        })
         .collect();
-    let mut timestamp: i128 = 0;
+    bus_ids_and_expected_residues.sort_unstable_by_key(|&(id, _)| Reverse(id));
+    dbg!(&bus_ids_and_expected_residues);
     let top: i128 = bus_ids_and_expected_residues
         .iter()
         .fold(1, |mut acc, &(bus_id, _)| {
             acc *= bus_id;
             acc
         });
+    let mut possible_timestamps: Vec<i128> = Vec::new();
+    // Initialize with remainder of the largest modulus's congruence
+    let mut timestamp: i128 = bus_ids_and_expected_residues[0].1;
     println!("initial timestamp: {}, top: {}", timestamp, top);
-    loop {
-        timestamp += bus_ids_and_expected_residues[0].0;
-        if is_earliest_timestamp(timestamp, &bus_ids_and_expected_residues[1..]) {
-            return Ok(timestamp);
-        }
-        if timestamp > top {
-            panic!("this didn't work")
-        }
+
+    // Fill in the values for the largest modulus
+    while timestamp < top {
+        possible_timestamps.push(timestamp);
+        timestamp += bus_ids_and_expected_residues[0].0
     }
+    dbg!(&possible_timestamps);
+
+    let mut multiple = bus_ids_and_expected_residues[0].0;
+    let mut last_index = 0;
+
+    for &(id, remainder)  in bus_ids_and_expected_residues.iter().skip(1) {
+        dbg!(id, remainder);
+        for index in last_index..possible_timestamps.len() {
+            dbg!(index);
+            if possible_timestamps[index] % id == remainder {
+                last_index = dbg!(index);
+                timestamp = dbg!(possible_timestamps[index]);
+                break;
+            }
+        }
+        multiple *= id;
+        dbg!(multiple);
+        // Make the possible_timestamps smaller
+        possible_timestamps = possible_timestamps.iter().skip(last_index).enumerate().map(|(i, &x)| {
+            println!("{} == {} + {} * {}", x, timestamp, multiple, i);
+            timestamp + multiple * i as i128
+        })
+        // .map(|(_, &x)| x)
+        .collect();
+        last_index = 0;
+        dbg!(&possible_timestamps);
+
+    }
+    Ok(timestamp)
+
+
+        // while timestamp < top {
+        //     timestamp += bus_ids_and_expected_residues[0].0;
+        //     if is_earliest_timestamp(timestamp, &bus_ids_and_expected_residues[1..]) {
+        //         return Ok(timestamp);
+        //     }
+        // }
+        // Err(Box::from("Could not find earliest timestamp"))
 }
 
 #[cfg(test)]
@@ -143,35 +195,48 @@ mod tests {
     use super::*;
     use std::env;
 
+    // #[ignore]
     #[test]
-    fn test_example_input() -> std::io::Result<()> {
+    fn test_example_input() -> Result<(), Box<dyn Error>> {
         let path = env::current_dir()?;
         let file = File::open(path.join("../example_input"))?;
         assert_eq!(1068781, find_earliest_timestamp(&file)?);
         Ok(())
     }
 
+    // #[ignore]
     #[test]
-    fn test_example_input2() -> std::io::Result<()> {
+    fn test_example_input2() -> Result<(), Box<dyn Error>> {
         let path = env::current_dir()?;
         let file = File::open(path.join("../example_input2"))?;
         assert_eq!(3417, find_earliest_timestamp(&file)?);
         Ok(())
     }
 
+    // #[ignore]
     #[test]
-    fn test_example_input3() -> std::io::Result<()> {
+    fn test_example_input3() -> Result<(), Box<dyn Error>> {
         let path = env::current_dir()?;
         let file = File::open(path.join("../example_input3"))?;
         assert_eq!(754018, find_earliest_timestamp(&file)?);
         Ok(())
     }
 
+    // #[ignore]
     #[test]
-    fn test_example_input4() -> std::io::Result<()> {
+    fn test_example_input4() -> Result<(), Box<dyn Error>> {
         let path = env::current_dir()?;
         let file = File::open(path.join("../example_input4"))?;
         assert_eq!(779210, find_earliest_timestamp(&file)?);
         Ok(())
     }
+
+    // #[ignore]
+    // #[test]
+    // fn test_input() -> Result<(), Box<dyn Error>> {
+    //     let path = env::current_dir()?;
+    //     let file = File::open(path.join("../input"))?;
+    //     assert_eq!(779210, find_earliest_timestamp(&file)?);
+    //     Ok(())
+    // }
 }
