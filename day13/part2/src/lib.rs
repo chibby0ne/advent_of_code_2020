@@ -102,92 +102,36 @@ use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
-use std::cmp::Reverse;
-
-// fn is_earliest_timestamp(timestamp: i128, bus_ids_and_residues: &[(i128, i128)]) -> bool {
-//     for &(bus_id, residue) in bus_ids_and_residues {
-//         if timestamp % bus_id != residue {
-//             return false;
-//         }
-//     }
-//     true
-// }
 
 fn find_earliest_timestamp(file: &File) -> Result<i128, Box<dyn Error>> {
     let mut buf_reader = BufReader::new(file);
     let mut contents = String::new();
     buf_reader.read_to_string(&mut contents)?;
     let lines: Vec<String> = contents.lines().map(|x| x.to_owned()).collect();
-    let mut bus_ids_and_expected_residues: Vec<(i128, i128)> = lines[1]
+    let bus_ids_and_delays: Vec<(i128, i128)> = lines[1]
         .split(',')
         .enumerate()
         .map(|(i, x)| (i, x.parse::<i128>().ok()))
         .filter(|(_, x)| x.is_some())
-        .map(|(i, x)| (i, x.unwrap()))
-        .map(|(i, x)| {
-            if i == 0 {
-                (x, 0)
-            } else {
-                (x, (x - i as i128).abs())
-            }
-        })
+        .map(|(i, x)| (i as i128, x.unwrap()))
         .collect();
-    bus_ids_and_expected_residues.sort_unstable_by_key(|&(id, _)| Reverse(id));
-    dbg!(&bus_ids_and_expected_residues);
-    let top: i128 = bus_ids_and_expected_residues
-        .iter()
-        .fold(1, |mut acc, &(bus_id, _)| {
-            acc *= bus_id;
-            acc
-        });
-    let mut possible_timestamps: Vec<i128> = Vec::new();
-    // Initialize with remainder of the largest modulus's congruence
-    let mut timestamp: i128 = bus_ids_and_expected_residues[0].1;
-    println!("initial timestamp: {}, top: {}", timestamp, top);
 
-    // Fill in the values for the largest modulus
-    while timestamp < top {
-        possible_timestamps.push(timestamp);
-        timestamp += bus_ids_and_expected_residues[0].0
-    }
-    dbg!(&possible_timestamps);
+    let mut previous_timestamp = 0;
+    let mut moduli_product = bus_ids_and_delays.get(0).unwrap().1;
 
-    let mut multiple = bus_ids_and_expected_residues[0].0;
-    let mut last_index = 0;
-
-    for &(id, remainder)  in bus_ids_and_expected_residues.iter().skip(1) {
-        dbg!(id, remainder);
-        for index in last_index..possible_timestamps.len() {
-            dbg!(index);
-            if possible_timestamps[index] % id == remainder {
-                last_index = dbg!(index);
-                timestamp = dbg!(possible_timestamps[index]);
+    for &(delay, bus_id) in bus_ids_and_delays.iter().skip(1) {
+        let mut i = 0;
+        loop {
+            let timestamp = previous_timestamp + (moduli_product * i as i128);
+            if (timestamp + delay) % bus_id == 0 {
+                moduli_product *= bus_id;
+                previous_timestamp = timestamp;
                 break;
             }
+            i += 1;
         }
-        multiple *= id;
-        dbg!(multiple);
-        // Make the possible_timestamps smaller
-        possible_timestamps = possible_timestamps.iter().skip(last_index).enumerate().map(|(i, &x)| {
-            println!("{} == {} + {} * {}", x, timestamp, multiple, i);
-            timestamp + multiple * i as i128
-        })
-        // .map(|(_, &x)| x)
-        .collect();
-        last_index = 0;
-        dbg!(&possible_timestamps);
-
     }
-    Ok(timestamp)
-
-
-        // while timestamp < top {
-        //     timestamp += bus_ids_and_expected_residues[0].0;
-        //     if is_earliest_timestamp(timestamp, &bus_ids_and_expected_residues[1..]) {
-        //         return Ok(timestamp);
-        //     }
-        // }
-        // Err(Box::from("Could not find earliest timestamp"))
+    Ok(previous_timestamp)
 }
 
 #[cfg(test)]
@@ -232,11 +176,11 @@ mod tests {
     }
 
     // #[ignore]
-    // #[test]
-    // fn test_input() -> Result<(), Box<dyn Error>> {
-    //     let path = env::current_dir()?;
-    //     let file = File::open(path.join("../input"))?;
-    //     assert_eq!(779210, find_earliest_timestamp(&file)?);
-    //     Ok(())
-    // }
+    #[test]
+    fn test_input() -> Result<(), Box<dyn Error>> {
+        let path = env::current_dir()?;
+        let file = File::open(path.join("../input"))?;
+        assert_eq!(539746751134958, find_earliest_timestamp(&file)?);
+        Ok(())
+    }
 }
