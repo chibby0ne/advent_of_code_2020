@@ -77,6 +77,9 @@ impl Mask {
     fn new(value: &str) -> Self {
         let mut or_value: i64 = 0;
         let mut and_value: i64 = -1;
+
+        // Creates an or_mask and an and_mask that can be applied succesively depending on a 0 or a
+        // 1
         for (i, c) in value.chars().rev().enumerate() {
             match c {
                 '1' => or_value += 1 << i,
@@ -94,6 +97,7 @@ impl Mask {
         let mut result = value;
         result &= self.and_mask;
         result |= self.or_mask;
+        // This sets the other bits higher 35th to 0, since this is an i64
         result &= (1 << 36) - 1;
         result
     }
