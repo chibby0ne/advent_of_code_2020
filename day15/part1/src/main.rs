@@ -66,7 +66,7 @@ impl GameState {
             state: HashMap::new(),
         };
         for (i, number) in initial_values.iter().enumerate() {
-            s.take_turn(i as i64 + 1, *number as i64);
+            s.take_turn(i as i64 + 1, *number);
         }
         s
     }
@@ -99,6 +99,18 @@ impl GameState {
     }
 }
 
+fn play_turns(starting_numbers: &[i64], turns_to_play: usize) -> Vec<i64> {
+    let mut game_state = GameState::new(&starting_numbers[..starting_numbers.len() - 1]);
+    let mut result: Vec<i64> = starting_numbers.to_vec();
+    let mut last_seen = *starting_numbers.last().unwrap();
+    for i in starting_numbers.len()..turns_to_play {
+        let new_last_seen = game_state.take_turn(i as i64, last_seen);
+        last_seen = new_last_seen;
+        result.push(last_seen);
+    }
+    result
+}
+
 fn main() -> Result<()> {
     let mut buffer = String::new();
     io::stdin().lock().read_to_string(&mut buffer)?;
@@ -112,18 +124,6 @@ fn main() -> Result<()> {
     let result = play_turns(&initial_numbers, turns_to_play);
     println!("Result is: {}", result.last().unwrap());
     Ok(())
-}
-
-fn play_turns(starting_numbers: &[i64], turns_to_play: usize) -> Vec<i64> {
-    let mut game_state = GameState::new(&starting_numbers[..starting_numbers.len() - 1]);
-    let mut result: Vec<i64> = starting_numbers.to_vec();
-    let mut last_seen = *starting_numbers.last().unwrap();
-    for i in starting_numbers.len()..turns_to_play {
-        let new_last_seen = game_state.take_turn(i as i64, last_seen);
-        last_seen = new_last_seen;
-        result.push(last_seen);
-    }
-    result
 }
 
 #[cfg(test)]
