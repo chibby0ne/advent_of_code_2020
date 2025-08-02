@@ -44,7 +44,6 @@
 
 #![allow(dead_code)]
 
-use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::io::{self, stdin};
 use std::ops::Range;
@@ -58,26 +57,58 @@ struct RuleSet {
     rules: HashMap<&'static String, Rule>,
 }
 
-const TICKETS_START: &str = "nearby tickets:";
-
-fn split_input_into_rules_and_tickets(
-    input: Vec<io::Result<String>>,
-) -> Result<(Vec<String>, Vec<String>)> {
-    let lines: Vec<_> = input.iter().filter_map(|x| x.as_ref().ok()).collect();
-    if let Some(position) = lines.iter().position(|x| *x == TICKETS_START) {
-        let (first, second) = lines.split_at(position);
-        let rules = first.iter().map(|&s| s.clone()).collect();
-        let tickets = second.iter().map(|&s| s.clone()).collect();
-        Ok((rules, tickets))
-    } else {
-        Err(anyhow!("some error"))
-    }
+fn split_input_into_rules_and_tickets(input: Vec<String>) -> (Vec<String>, Vec<String>) {
+    let mut sections = input.split(|x| x.is_empty());
+    let rules = sections.next().unwrap();
+    let tickets = sections
+        .next_back()
+        .unwrap()
+        .iter()
+        .skip(1)
+        .cloned()
+        .collect();
+    (rules.to_vec(), tickets)
 }
 
-fn main() -> Result<()> {
-    let lines: Vec<_> = stdin().lines().collect();
-    let (rules, tickets) = split_input_into_rules_and_tickets(lines)?;
+fn main() -> Result<(), io::Error> {
+    let lines = stdin().lines().collect::<Result<Vec<_>, _>>()?;
+    let (rules, tickets) = split_input_into_rules_and_tickets(lines);
     dbg!(rules);
     dbg!(tickets);
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_split_input_into_rules_and_tickets() {
+        let input_str = vec![
+            "wagon: 31-165 or 176-962",
+            "zone: 48-870 or 896-970",
+            "",
+            "your ticket:",
+            "",
+            "nearby tickets:",
+            "127,89,149,113,181,131,53,199,103,107,97,179,109,193,151,83,197,101,211,191",
+            "835,933,819,240,276,334,830,786,120,791,301,770,249,767,177,84,838,85,596,352",
+        ];
+        let input = input_str.into_iter().map(|x| x.to_owned()).collect();
+
+        let expected_rules = vec![
+            "wagon: 31-165 or 176-962".to_string(),
+            "zone: 48-870 or 896-970".to_string(),
+        ];
+        let expected_tickets = vec![
+            "127,89,149,113,181,131,53,199,103,107,97,179,109,193,151,83,197,101,211,191"
+                .to_string(),
+            "835,933,819,240,276,334,830,786,120,791,301,770,249,767,177,84,838,85,596,352"
+                .to_string(),
+        ];
+
+        let (actual_rules, actual_tickets) = split_input_into_rules_and_tickets(input);
+        assert_eq!(expected_rules, actual_rules);
+        assert_eq!(expected_tickets, actual_tickets);
+    }
 }
