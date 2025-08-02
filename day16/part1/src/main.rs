@@ -44,17 +44,63 @@
 
 #![allow(dead_code)]
 
+use regex::Regex;
 use std::collections::HashMap;
 use std::io::{self, stdin};
-use std::ops::Range;
+use std::ops::RangeInclusive;
 
-#[derive(Debug)]
+const RANGE_REGEX: &str = r"(\d+)-(\d+)";
+const RULE_REGEX: &str = r"(.+):";
+
+#[derive(Debug, PartialEq)]
 struct Rule {
-    ranges: Vec<Range<u64>>,
+    ranges: Vec<RangeInclusive<i64>>,
 }
 
+impl Rule {
+    fn new(rule: &str) -> Self {
+        let re = Regex::new(RANGE_REGEX).unwrap();
+        let ranges = re
+            .captures_iter(rule)
+            .map(|cap| {
+                let start = cap[1].parse().unwrap();
+                let end = cap[2].parse().unwrap();
+                RangeInclusive::new(start, end)
+            })
+            .collect();
+        Self { ranges }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 struct RuleSet {
-    rules: HashMap<&'static String, Rule>,
+    rules: HashMap<String, Rule>,
+}
+
+impl RuleSet {
+    fn new(v: Vec<String>) -> Self {
+        let re = Regex::new(RULE_REGEX).unwrap();
+        let mut rules = HashMap::new();
+        for elem in v {
+            let name = re.captures(&elem).map(|cap| cap[1].to_string()).unwrap();
+            let _r = Rule::new(&elem);
+            rules.insert(name, _r);
+        }
+        dbg!(&rules);
+        Self { rules }
+    }
+}
+
+struct Ticket {
+    t: Vec<i64>,
+}
+
+impl Ticket {
+    fn new(v: Vec<String>) -> Self {
+        Self {
+            t: v.iter().filter_map(|x| x.parse().ok()).collect(),
+        }
+    }
 }
 
 fn split_input_into_rules_and_tickets(input: Vec<String>) -> (Vec<String>, Vec<String>) {
@@ -73,8 +119,7 @@ fn split_input_into_rules_and_tickets(input: Vec<String>) -> (Vec<String>, Vec<S
 fn main() -> Result<(), io::Error> {
     let lines = stdin().lines().collect::<Result<Vec<_>, _>>()?;
     let (rules, tickets) = split_input_into_rules_and_tickets(lines);
-    dbg!(rules);
-    dbg!(tickets);
+
     Ok(())
 }
 
@@ -110,5 +155,35 @@ mod test {
         let (actual_rules, actual_tickets) = split_input_into_rules_and_tickets(input);
         assert_eq!(expected_rules, actual_rules);
         assert_eq!(expected_tickets, actual_tickets);
+    }
+
+    #[test]
+    fn test_new_rule() {
+        let input = "wagon: 31-165 or 176-962";
+        let expected_rule = Rule {
+            ranges: vec![31..=165, 176..=962],
+        };
+        let actual_rule = Rule::new(&input);
+        assert_eq!(expected_rule, actual_rule);
+    }
+
+    #[test]
+    fn test_new_ruleset() {
+        let input = vec!["wagon: 31-165 or 176-962".to_string()];
+        let mut hashmap = HashMap::new();
+        hashmap.insert("wagon".to_string(), Rule::new(&input[0]));
+        let expected_ruleset = RuleSet { rules: hashmap };
+        let actual_ruleset = RuleSet::new(input);
+        assert_eq!(expected_ruleset, actual_ruleset);
+    }
+
+    #[test]
+    fn test_regex() {
+        let input = "wagon: 31-165 or 176-962";
+        let re = Regex::new(r"(.+):").unwrap();
+        let capture_opt = re.captures(input);
+        assert!(capture_opt.is_some());
+        let p = capture_opt.unwrap().get(1).map_or("", |m| m.as_str());
+        assert_eq!("wagon", p);
     }
 }
