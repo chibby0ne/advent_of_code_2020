@@ -72,6 +72,11 @@ impl Rule {
         Self { ranges }
     }
 
+    /// Mutates the Ticket such that the values that pass this rule are removed from the
+    /// unverified_values of the ticket
+    /// returns true if the ticket is already valid (early termination) or if the ticket became
+    /// valid after the application of this rule
+    /// In addition it mutates the Ticket by setting the is_valid flag to true in the latter case
     fn validate(&self, t: &mut Ticket) -> bool {
         if t.is_valid {
             return true;
@@ -108,6 +113,7 @@ impl RuleSet {
         Self { rules }
     }
 
+    /// Applies the `validate` method of as many rules as it needs to verify that the ticket is valid
     fn is_valid_ticket(&self, t: &mut Ticket) -> bool {
         self.rules.values().any(|x| x.validate(t))
     }
@@ -153,8 +159,12 @@ fn main() -> Result<(), io::Error> {
     for ticket in tickets.iter_mut() {
         ruleset.is_valid_ticket(ticket);
     }
-    let v: Vec<i64> = tickets.iter().map(|x| x.error_rate()).collect();
-    println!("{}", v.iter().sum::<i64>());
+    let total_ticket_error_rate: i64 = tickets
+        .iter()
+        .flat_map(|x| x.unverified_values.iter())
+        .copied()
+        .sum();
+    println!("{total_ticket_error_rate}");
     Ok(())
 }
 
