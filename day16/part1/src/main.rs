@@ -109,11 +109,11 @@ impl RuleSet {
     }
 
     fn is_valid_ticket(&self, t: &mut Ticket) -> bool {
-        self.rules.values().find(|x| x.validate(t)).is_some()
+        self.rules.values().any(|x| x.validate(t))
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 struct Ticket {
     unverified_values: Vec<i64>,
     is_valid: bool,
@@ -123,8 +123,12 @@ impl Ticket {
     fn new(v: &str) -> Self {
         Self {
             unverified_values: v.split(',').filter_map(|x| x.parse().ok()).collect(),
-            is_valid: false,
+            ..Default::default()
         }
+    }
+
+    fn error_rate(&self) -> i64 {
+        self.unverified_values.iter().sum()
     }
 }
 
@@ -145,8 +149,12 @@ fn main() -> Result<(), io::Error> {
     let lines = stdin().lines().collect::<Result<Vec<_>, _>>()?;
     let (rules_lines, tickets_lines) = split_input_into_rules_and_tickets(lines);
     let ruleset = RuleSet::new(rules_lines);
-    let _tickets: Vec<_> = tickets_lines.into_iter().map(|x| Ticket::new(&x)).collect();
-    let _rules = ruleset.rules.values();
+    let mut tickets: Vec<_> = tickets_lines.into_iter().map(|x| Ticket::new(&x)).collect();
+    for ticket in tickets.iter_mut() {
+        ruleset.is_valid_ticket(ticket);
+    }
+    let v: Vec<i64> = tickets.iter().map(|x| x.error_rate()).collect();
+    println!("{}", v.iter().sum::<i64>());
     Ok(())
 }
 
