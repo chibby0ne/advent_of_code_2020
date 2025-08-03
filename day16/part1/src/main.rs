@@ -43,6 +43,7 @@
 // To begin, get your puzzle input.
 
 #![allow(dead_code)]
+#![allow(unused)]
 
 use regex::Regex;
 use std::collections::HashMap;
@@ -70,6 +71,24 @@ impl Rule {
             .collect();
         Self { ranges }
     }
+
+    fn validate(&self, t: &mut Ticket) -> bool {
+        if t.is_valid {
+            return true;
+        }
+        t.unverified_values.retain(|val| {
+            for range in self.ranges.iter() {
+                if range.start() <= val && val <= range.end() {
+                    return false;
+                }
+            }
+            true
+        });
+        if t.unverified_values.is_empty() {
+            t.is_valid = true;
+        }
+        t.is_valid
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -86,19 +105,25 @@ impl RuleSet {
             let _r = Rule::new(&elem);
             rules.insert(name, _r);
         }
-        dbg!(&rules);
         Self { rules }
+    }
+
+    fn is_valid_ticket(&self, t: &mut Ticket) -> bool {
+        self.rules.values().find(|x| x.validate(t)).is_some()
     }
 }
 
+#[derive(Debug, PartialEq)]
 struct Ticket {
-    t: Vec<i64>,
+    unverified_values: Vec<i64>,
+    is_valid: bool,
 }
 
 impl Ticket {
-    fn new(v: Vec<String>) -> Self {
+    fn new(v: &str) -> Self {
         Self {
-            t: v.iter().filter_map(|x| x.parse().ok()).collect(),
+            unverified_values: v.split(',').filter_map(|x| x.parse().ok()).collect(),
+            is_valid: false,
         }
     }
 }
@@ -118,8 +143,10 @@ fn split_input_into_rules_and_tickets(input: Vec<String>) -> (Vec<String>, Vec<S
 
 fn main() -> Result<(), io::Error> {
     let lines = stdin().lines().collect::<Result<Vec<_>, _>>()?;
-    let (rules, tickets) = split_input_into_rules_and_tickets(lines);
-
+    let (rules_lines, tickets_lines) = split_input_into_rules_and_tickets(lines);
+    let ruleset = RuleSet::new(rules_lines);
+    let _tickets: Vec<_> = tickets_lines.into_iter().map(|x| Ticket::new(&x)).collect();
+    let _rules = ruleset.rules.values();
     Ok(())
 }
 
@@ -185,5 +212,56 @@ mod test {
         assert!(capture_opt.is_some());
         let p = capture_opt.unwrap().get(1).map_or("", |m| m.as_str());
         assert_eq!("wagon", p);
+    }
+
+    #[test]
+    fn test_pass_rule_false() {
+        let rule = Rule::new("class: 1-3 or 5-7");
+        let mut ticket = Ticket::new("7,3,47");
+        let expected_ticket = Ticket::new("47");
+        let expected_output = false;
+        let actual_output = rule.validate(&mut ticket);
+        assert_eq!(expected_ticket.unverified_values, ticket.unverified_values);
+        assert_eq!(expected_output, actual_output);
+    }
+
+    #[test]
+    fn test_pass_rule_true() {
+        let rule = Rule::new("class: 1-3 or 5-70");
+        let mut ticket = Ticket::new("7,3,47");
+        let mut expected_ticket = Ticket::new("");
+        let expected_output = true;
+        let actual_output = rule.validate(&mut ticket);
+        assert_eq!(expected_ticket.unverified_values, ticket.unverified_values);
+        assert_eq!(expected_output, actual_output);
+    }
+
+    #[test]
+    fn test_ruleset_is_valid_ticket_true() {
+        let rules = vec![
+            "class: 1-3 or 5-7".to_string(),
+            "row: 6-11 or 33-44".to_string(),
+            "seat: 13-40 or 45-50".to_string(),
+        ];
+        let ruleset = RuleSet::new(rules);
+        let mut ticket = Ticket::new("7,3,47");
+        let expected_output = true;
+        let actual_output = ruleset.is_valid_ticket(&mut ticket);
+        assert_eq!(expected_output, actual_output);
+    }
+
+    #[test]
+    fn test_ruleset_is_valid_ticket_false() {
+        let rules = vec![
+            "class: 1-3 or 5-7".to_string(),
+            "row: 6-11 or 33-44".to_string(),
+            "seat: 13-40 or 45-50".to_string(),
+        ];
+        let ruleset = RuleSet::new(rules);
+        let mut ticket = Ticket::new("40,4,50");
+        let expected_output = false;
+        let actual_output = ruleset.is_valid_ticket(&mut ticket);
+        assert_eq!(expected_output, actual_output);
+        assert_eq!(Ticket::new("4"), ticket);
     }
 }
