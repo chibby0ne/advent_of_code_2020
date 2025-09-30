@@ -71,7 +71,7 @@
 #![allow(unused)]
 
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, stdin};
 use std::ops::RangeInclusive;
 
@@ -121,7 +121,16 @@ impl Rule {
     }
 
     fn fits(&self, v: &i64) -> bool {
-        true
+        for range in self.ranges.iter() {
+            if range.start() <= v && v <= range.end() {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn fits_vector(&self, v: &Vec<i64>) -> bool {
+        v.iter().all(|x| self.fits(x))
     }
 }
 
@@ -199,7 +208,7 @@ fn create_matrix_of_fields_from_tickets(valid_tickets: &Vec<&Ticket>) -> Vec<Vec
     let mut fields_for_all_tickets: Vec<Vec<i64>> = Vec::new();
 
     let mut field_index = 0;
-    let number_fields = valid_tickets.get(0).unwrap().copy_values.len();
+    let number_fields = valid_tickets.first().unwrap().copy_values.len();
 
     while field_index < number_fields {
         let mut new_vec: Vec<i64> = Vec::new();
@@ -208,7 +217,7 @@ fn create_matrix_of_fields_from_tickets(valid_tickets: &Vec<&Ticket>) -> Vec<Vec
         let number_tickets = valid_tickets.len();
 
         while ticket_index < number_tickets {
-            let ticket = valid_tickets.get(ticket_index as usize).unwrap();
+            let ticket = valid_tickets.get(ticket_index).unwrap();
             let field_value = ticket.copy_values.get(field_index).unwrap();
             new_vec.push(*field_value);
             ticket_index += 1
@@ -229,17 +238,44 @@ fn main() -> Result<(), io::Error> {
     let fields_for_all_tickets = create_matrix_of_fields_from_tickets(&valid_tickets);
     let mut field_names_to_field_indexes: HashMap<&str, i64> = HashMap::new();
 
-    dbg!(&fields_for_all_tickets);
+    let number_of_tickets = fields_for_all_tickets.first().unwrap().len();
+    let number_of_fields = fields_for_all_tickets.len();
+    eprintln!(
+        "num_tickets: {}, fields: {}",
+        number_of_tickets, number_of_fields
+    );
 
     // Find all the field names using the valid tickets and their ranges
-    for (rule_name, rule) in ruleset.rules.iter() {
-        for (i, field_f) in fields_for_all_tickets.iter().enumerate() {
-            if field_f.iter().all(|x| rule.fits(x)) {
+    // Known and unknown field_names
+    let mut unknown: HashSet<&String> = ruleset.rules.keys().collect();
+    // Known and unknown field_indexes
+    let mut indexes_unknown: HashSet<usize> = (0..number_of_fields).collect();
+    while !unknown.is_empty() {
+        // Find the next field that can only fit a single rule
+        let rule_name = *unknown.iter().next().unwrap();
+        let rule = ruleset.rules.get(rule_name).unwrap();
+        let mut iter = indexes_unknown.iter();
+        loop {
+            let i = *iter.next().unwrap();
+            let field = fields_for_all_tickets.get(i).unwrap();
+            eprintln!("checking {rule_name} with field {i}");
+            if rule.fits_vector(field)
+                && fields_for_all_tickets.iter().all(|v| {
+                    if v == field {
+                        true
+                    } else {
+                        !rule.fits_vector(v)
+                    }
+                })
+            {
+                eprintln!("field {i} only fits with rule {rule_name}");
+                unknown.remove(rule_name);
+                indexes_unknown.remove(&i);
                 field_names_to_field_indexes.insert(rule_name, i as i64);
+                break;
             }
         }
     }
-
     dbg!(&field_names_to_field_indexes);
 
     // Get only the departure fields
