@@ -403,7 +403,7 @@ mod test {
     #[test]
     fn test_create_matrix_of_fields_from_tickets() {
         let mut tickets = vec![
-            Ticket::new("2,0,14"),
+            Ticket::new("1,6,13"),
             Ticket::new("3,11,40"),
             Ticket::new("5,33,45"),
             Ticket::new("6,34,46"),
@@ -418,7 +418,7 @@ mod test {
         let fields_for_all_tickets = create_matrix_of_fields_from_tickets(&valid_tickets);
 
         let expected: Vec<Vec<i64>> =
-            vec![vec![2, 3, 5, 6], vec![0, 11, 33, 34], vec![14, 40, 45, 46]];
+            vec![vec![1, 3, 5, 6], vec![6, 11, 33, 34], vec![13, 40, 45, 46]];
 
         assert_eq!(expected, fields_for_all_tickets);
     }
