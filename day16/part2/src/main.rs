@@ -70,8 +70,12 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+use std::io::Write;
+
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
+use std::fs::File;
 use std::io::{self, stdin};
 use std::ops::RangeInclusive;
 
@@ -178,6 +182,20 @@ impl Ticket {
     }
 }
 
+impl Display for Ticket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.copy_values
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+        )
+    }
+}
+
 fn split_input_into_rules_and_tickets(input: Vec<String>) -> (Vec<String>, Vec<String>) {
     let mut sections = input.split(|x| x.is_empty());
     let rules = sections.next().unwrap();
@@ -234,6 +252,11 @@ fn main() -> Result<(), io::Error> {
     let ruleset = RuleSet::new(rules_lines);
     let mut tickets: Vec<_> = tickets_lines.into_iter().map(|x| Ticket::new(&x)).collect();
     let valid_tickets = get_all_valid_tickets(&mut tickets, &ruleset);
+    let mut file = File::create("valid_tickets.txt")?;
+
+    for ticket in &valid_tickets {
+        writeln!(file, "{}", ticket)?;
+    }
 
     let fields_for_all_tickets = create_matrix_of_fields_from_tickets(&valid_tickets);
     let mut field_names_to_field_indexes: HashMap<&str, i64> = HashMap::new();
